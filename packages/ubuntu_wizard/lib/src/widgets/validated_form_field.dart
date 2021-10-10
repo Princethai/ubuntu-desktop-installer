@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:form_field_validator/form_field_validator.dart';
 
@@ -51,7 +53,7 @@ class ValidatedFormField extends StatefulWidget {
   /// See [FormField.autovalidateMode].
   final AutovalidateMode autovalidateMode;
 
-  // Enables or disables TextField (defaults to true)
+  /// Enables or disables TextField (defaults to true)
   final bool enabled;
 
   /// Creates a [TextFormField] and a check mark.
@@ -81,6 +83,7 @@ class ValidatedFormField extends StatefulWidget {
 
 class _ValidatedFormFieldState extends State<ValidatedFormField> {
   late final TextEditingController _controller;
+  final _focusNode = FocusNode();
 
   @override
   void initState() {
@@ -90,11 +93,31 @@ class _ValidatedFormFieldState extends State<ValidatedFormField> {
   }
 
   @override
+  void dispose() {
+    _controller.dispose();
+    _focusNode.dispose();
+    super.dispose();
+  }
+
+  @override
+  void didUpdateWidget(ValidatedFormField oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!_focusNode.hasFocus &&
+        widget.initialValue != null &&
+        oldWidget.initialValue != widget.initialValue) {
+      scheduleMicrotask(() {
+        _controller.text = widget.initialValue!;
+      });
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     final formField = TextFormField(
       autofocus: widget.autofocus,
       autovalidateMode: widget.autovalidateMode,
       controller: _controller,
+      focusNode: _focusNode,
       onChanged: widget.onChanged,
       validator: widget.validator,
       obscureText: widget.obscureText,

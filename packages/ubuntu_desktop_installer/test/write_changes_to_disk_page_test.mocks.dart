@@ -27,13 +27,26 @@ class MockDiskStorageService extends _i1.Mock
   }
 
   @override
+  bool get hasMultipleDisks =>
+      (super.noSuchMethod(Invocation.getter(#hasMultipleDisks),
+          returnValue: false) as bool);
+  @override
+  _i3.Future<void> init() => (super.noSuchMethod(Invocation.method(#init, []),
+      returnValue: Future<void>.value(),
+      returnValueForMissingStub: Future<void>.value()) as _i3.Future<void>);
+  @override
   _i3.Future<List<_i4.Disk>> getGuidedStorage() =>
       (super.noSuchMethod(Invocation.method(#getGuidedStorage, []),
               returnValue: Future<List<_i4.Disk>>.value(<_i4.Disk>[]))
           as _i3.Future<List<_i4.Disk>>);
   @override
-  _i3.Future<void> setGuidedStorage() =>
-      (super.noSuchMethod(Invocation.method(#setGuidedStorage, []),
+  _i3.Future<void> setGuidedStorage([_i4.Disk? disk]) =>
+      (super.noSuchMethod(Invocation.method(#setGuidedStorage, [disk]),
+          returnValue: Future<void>.value(),
+          returnValueForMissingStub: Future<void>.value()) as _i3.Future<void>);
+  @override
+  _i3.Future<void> resetGuidedStorage() =>
+      (super.noSuchMethod(Invocation.method(#resetGuidedStorage, []),
           returnValue: Future<void>.value(),
           returnValueForMissingStub: Future<void>.value()) as _i3.Future<void>);
   @override

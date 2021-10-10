@@ -27,6 +27,7 @@ Future<void> runWizardApp(
   Widget app, {
   ArgResults? options,
   required SubiquityClient subiquityClient,
+  required Variant variant,
   required SubiquityServer subiquityServer,
   List<String>? serverArgs,
   List<SingleChildWidget>? providers,
@@ -48,7 +49,7 @@ Future<void> runWizardApp(
       .start(serverMode, serverArgs)
       .then(subiquityClient.open);
 
-  subiquityClient.setVariant(Variant.DESKTOP);
+  subiquityClient.setVariant(variant);
 
   // Use the default values for a number of endpoints
   // for which a UI page isn't implemented yet.
@@ -58,8 +59,8 @@ Future<void> runWizardApp(
     'network',
     'ssh',
     'snaplist',
-    'timezone',
   ]);
+  subiquityClient.setTimezone('geoip');
 
   WidgetsFlutterBinding.ensureInitialized();
   await setupAppLocalizations();
@@ -115,6 +116,7 @@ ArgResults? parseCommandLine(
   parser.addFlag('dry-run',
       defaultsTo: io.Platform.environment['LIVE_RUN'] != '1',
       help: 'Run Subiquity server in dry-run mode');
+  parser.addOption('initial-route', hide: true);
   parser.addOption(
     'log-file',
     valueHelp: 'path',

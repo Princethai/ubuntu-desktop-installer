@@ -1,5 +1,6 @@
 library subiquity_client;
 
+import 'dart:async';
 import 'dart:convert';
 import 'package:http/http.dart';
 import 'package:logger/logger.dart';
@@ -21,12 +22,24 @@ String _formatResponseLog(String method, String response) {
   return '==> $method $formatted';
 }
 
+class SubiquityException implements Exception {
+  const SubiquityException(this.method, this.statusCode, this.message);
+  final String method;
+  final int statusCode;
+  final String message;
+  String toString() => '$method returned error $statusCode\n$message';
+}
+
 class SubiquityClient {
   late HttpUnixClient _client;
+  final _isOpen = Completer<bool>();
+
+  Future<bool> get isOpen => _isOpen.future;
 
   void open(String socketPath) {
     log.info('Opening socket $socketPath');
     _client = HttpUnixClient(socketPath);
+    _isOpen.complete(true);
   }
 
   Future<void> close() {
@@ -37,7 +50,7 @@ class SubiquityClient {
   Future<String> _receive(String method, StreamedResponse response) async {
     final responseStr = await response.stream.bytesToString();
     if (response.statusCode != 200) {
-      throw ("$method returned error ${response.statusCode}\n$responseStr");
+      throw SubiquityException(method, response.statusCode, responseStr);
     }
     log.debug(() => _formatResponseLog(method, responseStr));
     return responseStr;
@@ -62,6 +75,12 @@ class SubiquityClient {
         break;
       case Variant.DESKTOP:
         variantString = "desktop";
+        break;
+      case Variant.WSL_SETUP:
+        variantString = "wsl_setup";
+        break;
+      case Variant.WSL_CONFIGURATION:
+        variantString = "wsl_configuration";
         break;
     }
     final request = Request(
@@ -212,7 +231,7 @@ class SubiquityClient {
     }
 
     final result = ApplicationStatus.fromJson(statusJson);
-    log.debug('state: $currentState => ${_formatState(result.state)}');
+    log.info('state: $currentState => ${_formatState(result.state)}');
 
     return result;
   }
@@ -255,15 +274,13 @@ class SubiquityClient {
   }
 
   /// Get guided disk options.
-  Future<GuidedStorageResponse> getGuidedStorage(int minSize, bool wait) async {
+  Future<GuidedStorageResponse> getGuidedStorage(bool wait) async {
     final request = Request(
-        'GET',
-        Uri.http('localhost', 'storage/guided',
-            {'min_size': '$minSize', 'wait': '$wait'}));
+        'GET', Uri.http('localhost', 'storage/guided', {'wait': '$wait'}));
     final response = await _send(request);
 
     final responseJson =
-        await _receiveJson("getGuidedStorage('$minSize', '$wait')", response);
+        await _receiveJson("getGuidedStorage('$wait')", response);
     return GuidedStorageResponse.fromJson(responseJson);
   }
 
@@ -280,6 +297,18 @@ class SubiquityClient {
     return StorageResponse.fromJson(responseJson);
   }
 
+  Future<StorageResponseV2> setGuidedStorageV2(GuidedChoice choice) async {
+    final request = Request(
+        'POST',
+        Uri.http('localhost', 'storage/v2/guided',
+            {'choice': jsonEncode(choice.toJson())}));
+    final response = await _send(request);
+
+    final responseJson = await _receiveJson(
+        "setGuidedStorageV2(${jsonEncode(choice.toJson())})", response);
+    return StorageResponseV2.fromJson(responseJson);
+  }
+
   Future<void> setStorage(List<dynamic> config) async {
     final request = Request('POST', Uri.http('localhost', 'storage'));
     request.body = jsonEncode(config);
@@ -293,6 +322,98 @@ class SubiquityClient {
 
     final responseJson = await _receiveJson("resetStorage()", response);
     return StorageResponse.fromJson(responseJson);
+  }
+
+  Future<StorageResponseV2> getStorageV2() async {
+    final request = Request('GET', Uri.http('localhost', 'storage/v2'));
+    final response = await _send(request);
+
+    final responseJson = await _receiveJson("getStorageV2()", response);
+    return StorageResponseV2.fromJson(responseJson);
+  }
+
+  Future<StorageResponseV2> setStorageV2() async {
+    final request = Request('POST', Uri.http('localhost', 'storage/v2'));
+    final response = await _send(request);
+
+    final responseJson = await _receiveJson("setStorageV2()", response);
+    return StorageResponseV2.fromJson(responseJson);
+  }
+
+  Future<StorageResponseV2> resetStorageV2() async {
+    final request = Request('POST', Uri.http('localhost', 'storage/v2/reset'));
+    final response = await _send(request);
+
+    final responseJson = await _receiveJson("resetStorageV2()", response);
+    return StorageResponseV2.fromJson(responseJson);
+  }
+
+  Future<StorageResponseV2> addPartitionV2(
+      Disk disk, Partition partition) async {
+    final request =
+        Request('POST', Uri.http('localhost', 'storage/v2/add_partition'));
+    request.body = jsonEncode(<String, dynamic>{
+      'disk_id': disk.id,
+      'partition': partition.toJson(),
+    });
+    final response = await _send(request);
+
+    final responseJson =
+        await _receiveJson('addPartition(${disk.id}, )', response);
+    return StorageResponseV2.fromJson(responseJson);
+  }
+
+  Future<StorageResponseV2> editPartitionV2(
+      Disk disk, Partition partition) async {
+    final request =
+        Request('POST', Uri.http('localhost', 'storage/v2/edit_partition'));
+    request.body = jsonEncode(<String, dynamic>{
+      'disk_id': disk.id,
+      'partition': partition.toJson(),
+    });
+    final response = await _send(request);
+
+    final responseJson =
+        await _receiveJson('editPartition(${disk.id}, )', response);
+    return StorageResponseV2.fromJson(responseJson);
+  }
+
+  Future<StorageResponseV2> deletePartitionV2(
+      Disk disk, Partition partition) async {
+    final request =
+        Request('POST', Uri.http('localhost', 'storage/v2/delete_partition'));
+    request.body = jsonEncode(<String, dynamic>{
+      'disk_id': disk.id,
+      'partition': partition.toJson(),
+    });
+    final response = await _send(request);
+
+    final responseJson =
+        await _receiveJson('editPartition(${partition.number}, )', response);
+    return StorageResponseV2.fromJson(responseJson);
+  }
+
+  Future<StorageResponseV2> addBootPartitionV2(Disk disk) async {
+    final request = Request(
+        'POST',
+        Uri.http('localhost', 'storage/v2/add_boot_partition',
+            {'disk_id': '"${disk.id}"'}));
+    final response = await _send(request);
+
+    final responseJson =
+        await _receiveJson('addBootPartitionV2(${disk.id}, )', response);
+    return StorageResponseV2.fromJson(responseJson);
+  }
+
+  Future<StorageResponseV2> reformatDiskV2(Disk disk) async {
+    final request = Request(
+        'POST',
+        Uri.http('localhost', 'storage/v2/reformat_disk',
+            {'disk_id': '"${disk.id}"'}));
+    final response = await _send(request);
+
+    final responseJson = await _receiveJson("reformatDiskV2()", response);
+    return StorageResponseV2.fromJson(responseJson);
   }
 
   Future<void> reboot({bool immediate = false}) async {

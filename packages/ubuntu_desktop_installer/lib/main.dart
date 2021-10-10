@@ -18,7 +18,7 @@ void main(List<String> args) {
   final subiquityServer = SubiquityServer();
 
   runWizardApp(
-    UbuntuDesktopInstallerApp(),
+    UbuntuDesktopInstallerApp(initialRoute: options['initial-route']),
     options: options,
     subiquityClient: subiquityClient,
     subiquityServer: subiquityServer,
@@ -30,7 +30,9 @@ void main(List<String> args) {
     ],
     providers: [
       Provider(create: (_) => DiskStorageService(subiquityClient)),
+      Provider(create: (_) => HostnameService()),
       Provider(create: (_) => KeyboardService()),
     ],
+    variant: Variant.DESKTOP,
   );
 }

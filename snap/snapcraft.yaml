@@ -22,12 +22,15 @@ apps:
 
   ubuntu-desktop-installer:
     command: bin/ubuntu_desktop_installer
+    slots: [dbus-ubuntu-desktop-installer]
+    common-id: com.canonical.ubuntu_desktop_installer
     desktop: bin/data/flutter_assets/assets/ubuntu-desktop-installer.desktop
     environment:
       PATH: $SNAP/usr/bin:$SNAP/bin:$PATH
       LIBGL_DRIVERS_PATH: $SNAP/usr/lib/$SNAPCRAFT_ARCH_TRIPLET/dri
       GIO_MODULE_DIR: $SNAP/usr/lib/$SNAPCRAFT_ARCH_TRIPLET/gio/modules
       LIVE_RUN: 1
+      LOG_LEVEL: debug
 
   probert:
     command: bin/probert
@@ -238,3 +241,9 @@ parts:
     stage:
       - usr/lib/${SNAPCRAFT_ARCH_TRIPLET}/dri
       - usr/share/drirc.d
+
+slots:
+  dbus-ubuntu-desktop-installer:
+    interface: dbus
+    bus: session
+    name: com.canonical.ubuntu_desktop_installer

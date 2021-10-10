@@ -12,7 +12,8 @@ class ProfileSetupModel extends ChangeNotifier {
   /// Creates a profile setup model.
   ProfileSetupModel(this._client) {
     Listenable.merge([
-      _identity,
+      _realname,
+      _username,
       _password,
       _confirmedPassword,
       _showAdvanced,
@@ -20,15 +21,18 @@ class ProfileSetupModel extends ChangeNotifier {
   }
 
   final SubiquityClient _client;
-  final _identity = ValueNotifier(IdentityData());
+  final _realname = ValueNotifier<String?>(null);
+  final _username = ValueNotifier<String?>(null);
   final _password = ValueNotifier('');
   final _confirmedPassword = ValueNotifier('');
 
-  /// The username for the profile.
-  String get username => _identity.value.username ?? '';
-  set username(String username) {
-    _identity.value = _identity.value.copyWith(username: username);
-  }
+  /// The real name for the profile.
+  String get realname => _realname.value ?? '';
+  set realname(String realname) => _realname.value = realname;
+
+  /// The current username or a sanitized real name if not set.
+  String get username => _username.value ?? realname.sanitize();
+  set username(String username) => _username.value = username;
 
   /// The password for the profile.
   String get password => _password.value;
@@ -48,20 +52,26 @@ class ProfileSetupModel extends ChangeNotifier {
 
   /// Whether the current input is valid.
   bool get isValid =>
+      realname.isNotEmpty &&
+      username.isNotEmpty &&
       RegExp(kValidUsernamePattern).hasMatch(username) &&
       password.isNotEmpty &&
       password == confirmedPassword;
 
   /// Loads the profile setup.
   Future<void> loadProfileSetup() async {
-    return _client.identity().then((identity) => _identity.value = identity);
+    final identity = await _client.identity();
+    _realname.value = identity.realname?.orIfEmpty(null);
+    _username.value = identity.username?.orIfEmpty(null);
   }
 
   /// Saves the profile setup.
   Future<void> saveProfileSetup({@visibleForTesting String? salt}) async {
-    final cryptedPassword = encryptPassword(password, salt: salt);
-    return _client.setIdentity(
-      _identity.value.copyWith(cryptedPassword: cryptedPassword),
+    final identity = IdentityData(
+      realname: realname,
+      username: username,
+      cryptedPassword: encryptPassword(password, salt: salt),
     );
+    return _client.setIdentity(identity);
   }
 }
